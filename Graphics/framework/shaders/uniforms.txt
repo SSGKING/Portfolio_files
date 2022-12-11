@@ -1,0 +1,24 @@
+layout( std140, row_major, binding=0 ) uniform Uniforms {
+    #define MAX_LIGHTS 24
+    vec3 objcolor;
+    mat4 worldMatrix;
+    int frame;
+    vec2 tileSize;
+    float alpha;
+    mat4 viewMatrix;
+    mat4 projMatrix;
+    float positional;
+    vec3 eyePos;
+    vec3 attenuation;
+    float cosineSpotAngleCutoff;
+    float cosineSpotEdgeStart;
+    vec3 spotDirection;
+    vec4 lightPositionsAndDirectionalFlag[MAX_LIGHTS];
+    vec4 spotDirectionsAndCosineSpotEdgeStarts[MAX_LIGHTS];
+    vec4 lightColorsAndcosineSpotAngleCutoffs[MAX_LIGHTS];
+
+    #define MAX_BLUR_RADIUS 32
+    vec2 blurDeltas;
+    int blurRadius;
+    float blurWeights[MAX_BLUR_RADIUS];
+};

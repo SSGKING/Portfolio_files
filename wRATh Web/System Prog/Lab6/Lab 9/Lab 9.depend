@@ -1,0 +1,23 @@
+# depslib dependency file v1.0
+1638498188 source:c:\users\alex\desktop\system prog\lab6\lab8\program2.c
+	"program2.h"
+	<stdio.h>
+	<stdlib.h>
+	<SDL2/SDL.h>
+	<stdio.h>
+	<stdlib.h>
+	<SDL2/SDL.h>
+
+1638497877 c:\users\alex\desktop\system prog\lab6\lab8\program2.h
+	"program2func.c"
+
+1638498166 c:\users\alex\desktop\system prog\lab6\lab8\program2func.c
+	<SDL2/SDL.h>
+	<stdio.h>
+	<stdlib.h>
+
+1638498166 source:c:\users\alex\desktop\system prog\lab6\lab8\program2func.c
+	<SDL2/SDL.h>
+	<stdio.h>
+	<stdlib.h>
+

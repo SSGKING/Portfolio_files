@@ -1,0 +1,9 @@
+#version 430
+layout(binding=0) uniform sampler2DArray tex;
+in vec2 v_texCoord;
+out vec4 color;
+void main(){
+    color = texture( tex, vec3(v_texCoord,0 ) );
+    //4.0 can be changed to affect the amount of glow
+    color.rgb += 2.0 * texture( tex, vec3(v_texCoord,1 ) ).rgb;
+}

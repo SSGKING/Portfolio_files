@@ -1,0 +1,46 @@
+#version 430
+
+layout(local_size_x=64,local_size_y=1,local_size_z=1) in;
+
+layout(binding=0,r32f) uniform image2DArray heights;
+
+void main(){
+    
+    ivec3 coord = ivec3(gl_GlobalInvocationID);
+    
+    if( waterClear != 0 ){
+        float d = distance( vec2(coord.xy), vec2(100,100) );
+        float displ = smoothstep(0,10,d);
+        displ = 1.0-displ;
+        displ *= displ;
+        displ *= 1.5;
+        imageStore( heights, ivec3(coord.xy,0), vec4(-displ));
+        imageStore( heights, ivec3(coord.xy,1), vec4(0));
+        return;
+    }
+
+    
+    int curr = waterCurrentSlice;
+    int prev = 1-curr;
+    coord.z = curr;
+    float h = imageLoad( heights, coord ).r;
+    float hLeft = imageLoad( heights, coord + ivec3(-1, 0,0) ).r;
+    float hUp = imageLoad( heights, coord + ivec3( 0,-1,0) ).r;
+    float hRight = imageLoad( heights, coord + ivec3( 1, 0,0) ).r;
+    float hDown = imageLoad( heights, coord + ivec3( 0, 1,0) ).r;
+    coord.z = prev;
+    float hprime = imageLoad(heights, coord).r;
+    float psi = hLeft + hUp + hRight + hDown;
+    float newh = (psi * waterTau1 + 
+                  hprime * waterTau2 + 
+                  h * waterTau3 ) / waterTau4;
+                  
+    vec2 dripxz = waterRippleInfo.xy;
+    float dripRadius = waterRippleInfo.z;
+    float dripAmount = waterRippleInfo.w;
+    float d = distance( dripxz, coord.xy );
+    newh += mix( dripAmount, 0.0 , min(1.0,d/dripRadius) );
+    
+
+    imageStore( heights, coord, vec4(newh));
+}

@@ -1,0 +1,67 @@
+#version 430
+layout(binding=0) uniform sampler2DArray tex;
+in vec2 v_texcoord;
+in vec3 v_normal;
+in vec3 v_pos;
+out vec4 color;
+#define ambientColor1 vec3(0.1,0.1,0.1)
+#define ambientColor2 vec3(0.2,0.2,0.2)
+void main(){
+    vec3 totaldp=vec3(0.0);
+    vec3 totalsp=vec3(0.0);
+    vec3 lightColor;
+    color = texture( tex, vec3( v_texcoord, 0.0 ) );
+    vec3 N = normalize(v_normal);
+    float mappedY = 0.5*(N.y + 1.0);
+    vec3 ambientColor = mix(
+            ambientColor1,
+            ambientColor2,
+            mappedY);
+
+
+
+    for(int i=0;i<MAX_LIGHTS;++i){
+        //if( i != 20 ){
+        //    continue;
+        //}
+        vec3 lightPosition = lightPositionsAndDirectionalFlag[i].xyz;
+        float positionalOrDirectional = lightPositionsAndDirectionalFlag[i].w;
+        vec3 spotDirection = spotDirectionsAndCosineSpotEdgeStarts[i].xyz;
+        float cosineSpotEdgeStart = spotDirectionsAndCosineSpotEdgeStarts[i].w;
+        vec3 lightColor = lightColorsAndcosineSpotAngleCutoffs[i].xyz;
+        
+        float cosineSpotAngleCutoff = lightColorsAndcosineSpotAngleCutoffs[i].w;
+        float dp,sp;
+        vec3 L;
+        if( positional == 1.0 )
+            L = normalize(lightPosition - v_pos);
+        else
+            L = lightPosition;
+    
+    vec3 R = reflect( -L, N );
+
+        vec3 V = normalize( eyePos - v_pos);
+        dp = max( dot(N,L), 0.0 );
+        sp = dot(V,R);
+        sp = max(sp,0.0);
+        sp = pow(sp,25);
+        float D = distance( lightPosition, v_pos);
+        float A = 1.0/(attenuation[2]*D*D + attenuation[1]*D + attenuation[0]);
+        A = min(1.0,A);
+        dp *= A;
+        sp *= A;
+        float cosineTheta = dot(-L,spotDirection);
+
+        float spotAttenuation = smoothstep(cosineSpotAngleCutoff,cosineSpotEdgeStart,cosineTheta);
+
+        dp *= spotAttenuation;
+        sp *= spotAttenuation;
+        totaldp += dp*lightColor;
+        totalsp += sp*lightColor;
+    }
+
+    color.rgb = (ambientColor + vec3(totaldp))*color.rgb + totalsp;
+    
+    
+}
+

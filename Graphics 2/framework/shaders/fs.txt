@@ -1,0 +1,358 @@
+#version 430
+in vec2 v_texcoord;
+in vec3 v_normal;
+in vec3 v_worldpos;
+in vec4 v_tangent;
+in vec2 v_bumpcord;
+
+#define AMBIENT_UP vec3(0.1,0.1,0.1)
+#define AMBIENT_DOWN vec3(0.2,0.2,0.2)
+
+layout(location=0) out vec4 color;
+layout(location=1) out vec4 glow;
+
+layout(binding=0) uniform sampler2DArray tex;
+layout(binding=1) uniform sampler2DArray emittex;
+layout(binding=2) uniform sampler2DArray bumpmapTexture;
+layout(binding=3) uniform sampler2DArray metallicityRoughnessTexture;
+layout(binding=7) uniform samplerCube envMap;
+layout(binding=15) uniform sampler2DArray depthtex;
+
+
+float lambert(vec3 L, vec3 N ){
+    float diffuse = dot(L,N);
+    diffuse = max( 0.0, diffuse );
+    return diffuse;
+}
+
+float phong(vec3 V, vec3 R){
+    float specular = dot(V,R);
+    specular = max(specular,0.0);
+    specular = pow(specular,16.0);
+    return specular;
+}
+vec3 schlickFresnel(vec3 F0, float cos_phi, vec3 objectColor, float metallicity){
+    vec3 one_minus_F0 = vec3(1.0)-F0;
+    return F0 + one_minus_F0 * pow(1.0 - cos_phi,5.0);
+}
+vec3 schlickDiffuse( vec3 F, float cos_phi,float mu, vec3 baseColor,float cos_theta_i )
+{
+    vec3 d = mix( 0.96*baseColor , vec3(0), mu );
+    d = d/3.14;
+    return cos_theta_i * ( vec3(1.0)-F) * d ;
+}
+vec3 schlickSpecular( vec3 F, float cos_phi, float cos_psi,vec3 baseColor, float cos_theta_i,float cos_theta_o, float rho, float mu)
+{
+    float rho2 = rho*rho;
+
+    float disc1 = max(0.0,
+            rho2 + (1.0-rho2) * cos_theta_o * cos_theta_o );
+    float disc2 = max(0.0,
+            rho2 + (1.0-rho2) * cos_theta_i * cos_theta_i );
+    float denom = max(0.0001,
+            cos_theta_i * sqrt( disc1 ) +
+            cos_theta_o * sqrt( disc2 )
+    );
+
+    float V = 1.0 / (2.0 * denom );
+    float tmp = rho / (1.0 + cos_psi*cos_psi * (rho2-1.0) );
+    float D = 1.0/(3.14) * tmp*tmp;
+    return cos_theta_i * F * V * D;
+}
+
+
+//STUFF FOR WATER
+
+float randomNumber(inout uint state){
+    state ^= (state<<13);
+    state ^= (state>>17);
+    state ^= (state<<15);
+    return (state & 0x7fffffff)/float(0x7fffffff);
+}
+
+uint wangHash(uint v){
+    v = 9*( (v >> 16 ) ^ (v ^ 61));
+    v ^= (v>>4);
+    v = v * 668265261;
+    return v ^ (v>>15);
+}
+
+
+vec4 gradient(vec4 v1){
+    ivec4 v=ivec4(v1);
+    v &= ivec4(0xff);     //8 bits each
+    uint state= wangHash( (v.w << 24) | (v.z << 16) | (v.y << 8) | v.x ); 
+    float vx = randomNumber(state);
+    float vy = randomNumber(state);
+    float vz = randomNumber(state);
+    float vw = randomNumber(state);
+    vec4 r = vec4(vx, vy, vz, vw);
+    r -= vec4(0.5);
+    r = normalize(r);
+    return r;
+}
+float noise(vec4 p){
+    float x = p.x; float y = p.y; float z = p.z; float w = p.w; 
+    float t;
+    vec4 q[16];  
+    float d[16];  
+    float a[8]; 
+    float b[4];
+    float c[2];
+    
+    q[0] = vec4(floor(x), ceil(y), floor(z), floor(w));   
+    q[1] = vec4(ceil(x), ceil(y), floor(z), floor(w));
+    q[2] = vec4(floor(x), floor(y), floor(z), floor(w));  
+    q[3] = vec4(ceil(x), floor(y), floor(z), floor(w));
+    q[4] = vec4(floor(x), ceil(y), ceil(z), floor(w));    
+    q[5] = vec4(ceil(x), ceil(y), ceil(z), floor(w));
+    q[6] = vec4(floor(x), floor(y), ceil(z), floor(w));   
+    q[7] = vec4(ceil(x), floor(y), ceil(z), floor(w));
+    q[8] = vec4(floor(x), ceil(y), floor(z), ceil(w));   
+    q[9] = vec4(ceil(x), ceil(y), floor(z), ceil(w));
+    q[10] = vec4(floor(x), floor(y), floor(z), ceil(w));  
+    q[11] = vec4(ceil(x), floor(y), floor(z), ceil(w));
+    q[12] = vec4(floor(x), ceil(y), ceil(z), ceil(w));    
+    q[13] = vec4(ceil(x), ceil(y), ceil(z), ceil(w));
+    q[14] = vec4(floor(x), floor(y), ceil(z), ceil(w));   
+    q[15] = vec4(ceil(x), floor(y), ceil(z), ceil(w));
+    for(int i=0;i<16;++i){
+        vec4 g = gradient(q[i]);
+        d[i] = dot(g, p-q[i]);
+    }
+    t = smoothstep(0.0, 1.0, fract(p.x)); 
+    a[0] = mix( d[0], d[1], t ); 
+    a[1] = mix( d[2], d[3], t );
+    a[2] = mix( d[4], d[5], t ); 
+    a[3] = mix( d[6], d[7], t );
+    a[4] = mix( d[8], d[9], t ); 
+    a[5] = mix( d[10], d[11], t );
+    a[6] = mix( d[12], d[13], t ); 
+    a[7] = mix( d[14], d[15], t );
+    t = smoothstep(0.0, 1.0, fract(p.y));
+    b[0] = mix( a[1], a[0], t ); 
+    b[1] = mix( a[3], a[2], t );
+    b[2] = mix( a[5], a[4], t ); 
+    b[3] = mix( a[7], a[6], t );
+    t = smoothstep(0.0, 1.0, fract(p.z) );
+    c[0] = mix( b[0], b[1], t );
+    c[1] = mix( b[2], b[3], t );
+    t = smoothstep(0.0, 1.0, fract(p.w) );
+    return mix(c[0],c[1],t);
+}
+
+uint pcg(uint state){
+    //https://www.reedbeta.com/blog/hash-functions-for-gpu-rendering/
+    state *= 747796405U;
+    state += 2891336453U;
+    uint tmp1 = state>>28;
+    tmp1 += 4;
+    tmp1 = state >> tmp1;
+    state ^= tmp1;
+    state *= 277803737U;
+    state ^= (state >> 22);
+    return state;
+}
+
+float tofloat(uint v){
+    return (v&0x7fffffff)/float(0x7fffffff);
+}
+
+vec4 PG(vec4 p){
+    vec4 g;
+    uint v;
+    uint vx = pcg(uint(p.x));
+    uint vy = pcg(vx + uint(p.y));
+    uint vz = pcg(vy + uint(p.z));
+    uint vw = pcg(vz + uint(p.w));
+    v = vw;
+    g.x = tofloat(v);
+    v = pcg(v);
+    g.y = tofloat(v);
+    v = pcg(v);
+    g.z = tofloat(v);
+    v = pcg(v);
+    g.w = tofloat(v);
+    return g;
+}
+    
+    
+
+float worley(vec4 p){
+    vec4 boxIndex = floor(p);
+    vec4 pOffset = fract(p);
+    float closest=99999;
+    for(int i=-1;i<=1;i+=1){
+        for(int j=-1;j<=1;j+=1){
+            for(int k=-1;k<=1;k+=1){
+                for(int m=-1;m<=1;m+=1){
+                    vec4 boxmin = boxIndex + ivec4(i,j,k,m);
+                    
+                    //experiment...
+                    //vec4 g = PG(boxmin);  
+                    
+                    vec4 g = gradient(boxmin); //g.xy in [-1...1]
+                    g = g * 0.5;    //g in -0.5...0.5
+                    g += vec4(0.5);     //g in 0...1
+                    vec4 pt = boxmin + g; 
+                    float dist = distance(p,pt);
+                    closest = min(closest,dist);
+                }
+            }
+        }
+    }
+    return closest;
+}
+
+
+
+
+
+
+void main(){
+    if( testDepth != 0.0 ){
+        float d = texelFetch( depthtex,ivec3(gl_FragCoord.xy,0), 0 ).r;
+        if( gl_FragCoord.z < d ){
+            discard;
+            return;
+        }
+    }
+    vec3 b = texture(bumpmapTexture,vec3(v_bumpcord,0.0)).xyz;
+    vec3 Bet = 2.0 * (b.rgb - vec3(0.5));
+    Bet = normalize(Bet);
+    vec3 N = v_normal;
+    N = normalize(N);
+    if(v_tangent.w != 0){
+        
+        //do bump-mapping
+        //vec3 T = v_tangent.xyz;
+        //T = T-dot(T,N)*N;
+        //T = normalize(T);
+        //vec3 B = cross(N,T);
+        //B = normalize(B);
+        //mat3 M = mat3(T.x,B.x,N.x,T.y,B.y,N.y,T.z,B.z,N.z);
+        //N = Bet*M;
+        //N = normalize(N);
+    }
+
+    
+    N = vec3(vec4(N,0.0) * worldMatrix);
+    
+    vec3 texcoordd = vec3(v_texcoord, animationFrame);
+    vec4 texcc = texture( tex, texcoordd );
+
+    vec4 metallicityRoughness = texture(metallicityRoughnessTexture, vec3(v_texcoord,0.0));
+
+    vec3 F0 = mix( vec3(0.04), texcc.rgb, metallicityRoughness.b );
+    
+    float metallicity = texture(metallicityRoughnessTexture,vec3( v_texcoord,0.0) ).b;
+
+    float roughness = metallicityRoughness.g;
+
+    //surface normal
+    //vec3 N = normalize(v_normal);
+    
+    //vector from surface to viewer
+    vec3 V = normalize( eyePos - v_worldpos);
+    vec3 VR = reflect(-V,N);
+
+    vec3 ambient = mix( AMBIENT_DOWN, AMBIENT_UP, 0.5*(N.y+1.0));
+    
+    vec3 totaldiffuse = vec3(0);
+    vec3 totalspecular = vec3(0);
+    vec4 baseColor = texture( tex, vec3(v_texcoord,0.0));
+    for(int i=0;i<MAX_LIGHTS;++i){
+        
+        //unpack data from uniforms
+        vec3 lightPosition = lightPositionsAndDirectionalFlag[i].xyz;
+        float positionalOrDirectional = lightPositionsAndDirectionalFlag[i].w;
+        vec3 spotDirection = spotDirectionsAndCosineSpotEdgeStarts[i].xyz;
+        float cosineSpotEdgeStart = spotDirectionsAndCosineSpotEdgeStarts[i].w;
+        vec3 lightColor = lightColorsAndCosineSpotAngleCutoffs[i].xyz;
+        float cosineSpotAngleCutoff = lightColorsAndCosineSpotAngleCutoffs[i].w;
+        
+        //vector from surface to light
+        vec3 L = lightPosition - v_worldpos;
+        float lightDistance = length(L);
+        L /= lightDistance;
+        normalize(L);
+
+        //reflection vector of light
+        vec3 R = reflect(-L,N);
+        
+        
+        vec3 H = L+V;
+        H = normalize(H);
+        float cosphi = max(dot(V,H),0);
+        vec3 F = schlickFresnel(F0,cosphi,texcc.rgb,metallicityRoughness.b);
+        
+        float cos_theta_i = max(dot(N,L),0);
+        float cos_theta_o = max(dot(N,V),0);
+        float cospsi = max(dot(N,H),0);
+
+        //float diffuse = lambert( L,N );
+        vec3 diffuse = schlickDiffuse(F,cosphi,metallicityRoughness.b,baseColor.rgb, cos_theta_i);
+        
+        //float specular = 0.0;
+        //if( diffuse > 0.0 )
+            //specular = phong( V,R );
+
+        vec3 specular = schlickSpecular(F,cosphi,cospsi,baseColor.rgb,cos_theta_i,cos_theta_o,metallicityRoughness.g,metallicityRoughness.b);
+            
+        //attenuation
+        float A = 1.0/(attenuation[0] + lightDistance*(attenuation[1] + lightDistance*attenuation[2]));
+        A=min(A,1.0);
+        diffuse *= A;
+        specular *= A;
+        
+        //spotlight cutoff
+        float cosineTheta = dot(-L,spotDirection);
+        float spotAttenuation = smoothstep( 
+                        cosineSpotAngleCutoff, 
+                        cosineSpotEdgeStart, 
+                        cosineTheta);
+        diffuse *= spotAttenuation;
+        specular *= spotAttenuation;
+        
+        
+        //add to running total
+        totaldiffuse += diffuse*lightColor;
+        totalspecular += specular*lightColor;
+    }
+   
+   
+    //combine texture + emission
+    vec3 texcoord = vec3(v_texcoord, animationFrame);
+    vec4 texc = texture( tex, texcoord );
+    vec3 etexc = texture( emittex, texcoord).rgb;
+    if( any( notEqual(etexc,vec3(0.0))))
+        color.rgb = etexc;
+    else
+        color.rgb = (ambient+totaldiffuse)*texc.rgb + totalspecular;
+    color.a = texc.a * alphaFactor;
+
+    vec3 reflColor = texture(envMap, VR, roughness * 25 ).rgb;
+    color.rgb += metallicity * reflColor.rgb;
+
+    vec4 emitColor = texture( emittex, vec3(v_texcoord,0.0));
+    //vec4 baseColor = texture( tex, vec3(v_texcoord,0.0));
+    
+    if( v_worldpos.x >= waterMin.x && v_worldpos.x <= waterMax.x &&
+        v_worldpos.y <= waterMax.y && 
+        v_worldpos.z >= waterMin.z && v_worldpos.z <= waterMax.z ){
+        
+        float n = worley( vec4( v_worldpos*4, waterElapsed) );
+        //float pn = noise( vec4(v_worldpos*10, waterElapsed) );
+        
+        n = n*n;
+        n -= 0.5;
+        //n += 0.75*pn;
+        color.rgb += vec3(0.5*n);
+    }
+
+
+
+    glow.rgb = vec3(0,0,0);
+    glow.a = 0;
+
+}

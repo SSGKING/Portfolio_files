@@ -1,0 +1,28 @@
+#version 430
+layout(location=0) in vec3 position;
+layout(location=1) in vec2 texcoord;
+layout(location=2) in vec3 normal;
+layout(location=3) in vec4 tangent;
+layout(location=4) in vec2 bumpcord;
+
+out vec2 v_texcoord;
+out vec3 v_normal;
+out vec3 v_worldpos;
+out vec2 v_bumpcord;
+out vec4 v_tangent;
+
+
+void main(){
+    
+    vec4 p = vec4(position.xyz,1.0);
+    p = p * worldMatrix;
+    v_worldpos = p.xyz;
+    p = p * viewMatrix;
+    p = p * projMatrix;
+    gl_Position = p;
+    v_texcoord = texcoord;
+    v_tangent = tangent;
+    v_normal = normal;
+    v_bumpcord = bumpcord;
+    
+}

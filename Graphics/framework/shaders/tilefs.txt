@@ -1,0 +1,14 @@
+#version 430
+
+layout(binding=0) uniform sampler2DArray tileImages;
+
+out vec4 color;
+
+void main(){
+    //get rid of 0.5 fraction
+    vec2 tmp = floor(gl_FragCoord.xy);
+
+    vec2 tilenum = floor(tmp / tileSize);
+    vec2 tilecoords = mod( tmp, tileSize);
+
+    color = texelFetch( tileImages, ivec3( tilecoords, 0 ), 0 );

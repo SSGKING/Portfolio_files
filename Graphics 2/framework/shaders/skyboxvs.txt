@@ -1,0 +1,10 @@
+#version 430
+layout(location=0) in vec3 position;
+out vec3 v_objPos;
+void main(){
+    vec4 p = vec4(eyePos.xyz + position,1.0);
+    p = p * viewMatrix * projMatrix;
+    p.z = p.w;
+    gl_Position = p;
+    v_objPos = position.xyz;
+}

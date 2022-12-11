@@ -1,0 +1,14 @@
+#version 430
+layout(binding=14) uniform sampler2DArray tex;
+in vec2 v_texCoord;
+out vec4 color;
+void main(){
+    color = vec4(0);
+    color += blurWeights[0] * texture( tex, vec3( v_texCoord , blurSlice ) );
+    for(int i=1;i<=blurRadius;++i){
+        float weight = blurWeights[i];
+        color += weight * texture( tex, vec3( v_texCoord - i * blurDeltas , blurSlice ) );
+        color += weight * texture( tex, vec3( v_texCoord + i * blurDeltas , blurSlice ) );
+    }
+    color.a=1.0;
+}

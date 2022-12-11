@@ -1,0 +1,5 @@
+# depslib dependency file v1.0
+1635886656 source:c:\users\alex\desktop\system prog\lab6\systems programing lab 6\lab6.c
+	<SDL2/SDL.h>
+	<stdio.h>
+

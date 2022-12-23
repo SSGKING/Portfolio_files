@@ -1,0 +1,21 @@
+11-17-2022
+1 hour 
+Made a plan for the project
+
+11-20-22
+2 Hours
+Watched some tutorials covering Unreal C++ and took notes
+
+11-22-22
+2 Hours
+Made some strives on the perforce repository
+
+11-28-22
+2 Hours
+Did some work on aesthetics including the flippers and some materials
+
+11-29-22 - 2 hours
+Worked on some more models and made ui
+
+12-4-22 - 3 Hours
+Finished the project and submitted, added some more materials and finished UI

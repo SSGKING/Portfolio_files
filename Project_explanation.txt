@@ -1,0 +1,18 @@
+WHAT I DID....
+
+I did a good chunk of the programming for wrath including animations and general movement for the player.
+
+For the unreal version of robotron I did everything outside of the music, the robot model and it's animations, and of course this was in class.
+
+For the pinball project that I did with Adam Fahrer, I did all the models for the game, all the textures, and UI alonglide some support for combining ui to C++ code.
+
+HOW THIS IS USEFUL...
+
+For the Wrath project I did it with a group of 4 people, and because of my leadership and flexibility we never had any merge errors.
+
+For the Unreal Robotron project this shows my comfortability with Unreal, while it isn't the most impresive thing, I made it a point to try and get as good as I could without
+using assets from the store.
+
+Finaly for the pinball project, I didn't have much time to work on as the others, but I am still proud of what Adam and I were able to accomplish given our limited time
+I think that my ability to quickly move out of the way of others and work where I am needed shows my capability as a generalist.
+

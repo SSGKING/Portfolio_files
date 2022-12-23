@@ -9,3 +9,5 @@ There are two unreal projects that are not on this github I can send them to you
 To get the files send please email at AlexanderNeill64@outlook.com
 
 There will be pictures just to show what it is though
+
+Please check out the included Project_explanation file as it explains what each project is.
